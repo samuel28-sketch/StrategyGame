@@ -383,12 +383,15 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
 
         //renders all units on the map
         for(Unit unit: allUnits){ //gets every unit on the map
-            g.drawImage(unit.idlePic, (int)unit.xpos-cameraXPos-20, (int)unit.ypos-cameraYPos-50, unit.width, unit.height, null); //renders troops on the map
-            if (showHitboxes) { //shows the hitbox of every unit if Q is pressed
-                if (unit.type=='a') {
-                    g.drawOval((int) (unit.xpos - cameraXPos - (150 + (10 * unit.kills))), (int) (unit.ypos - cameraYPos - (150 + (10 * unit.kills))), (int) (300 + (20 * unit.kills)), (int) (300 + (20 * unit.kills)));
+            for (Cities city: cities) { //gets every city on the map
+                g.drawImage(unit.idlePic, (int) unit.xpos - cameraXPos - 20, (int) unit.ypos - cameraYPos - 50, unit.width, unit.height, null); //renders troops on the map
+                if (showHitboxes) { //shows the hitbox of every unit if Q is pressed
+                    if (unit.type == 'a') {
+                        g.drawOval((int) (unit.xpos - cameraXPos - (150 + (10 * unit.kills))), (int) (unit.ypos - cameraYPos - (150 + (10 * unit.kills))), (int) (300 + (20 * unit.kills)), (int) (300 + (20 * unit.kills)));
+                    }
+                    g.draw(city.hitbox);
+                    g.draw(unit.hitbox);
                 }
-                g.draw(unit.hitbox);
             }
 
             //System.out.println(unit.xpos-cameraXPos);
@@ -684,7 +687,7 @@ public void updateUnits(){
                     }
                 }
                 else if (!unit.readyToMove&&city.team==unit.team&&unit.hitbox.intersects(city.hitbox)){ //heals units that stop in friendly cities
-                    unit.health+=.1;
+                    unit.health+=.25;
                     if (unit.health>unit.maxHealth){
                         unit.health=unit.maxHealth;
                     }
@@ -771,18 +774,20 @@ public void updateUnits(){
                     closestCity = city;
                 }
             }
-            //makes the Ai heal their unit if its low health and in an Ai city
+            boolean healing = false;
             for (Cities city:enemyCities) { // goes thru all the enemy cities
-                if (unit.hitbox.intersects(city.hitbox)&&unit.health<80){
-                    return;
+                if(unit.health<80&&unit.hitbox.intersects(city.hitbox)){  // makes it so that if Ai unti is under 80 health it will stop to heal in an AI city
+                    unit.readyToMove = false;
+                    healing=true;
+                    break;
                 }
-            }
-            //brings the Ai troop to the closest city
-             if (closestCity != null && closestDistance>5 && !unit.readyToMove) {
-                unit.selctX = closestCity.xpos;
-                unit.selctY = closestCity.ypos;
-                unit.readyToMove = true;
-                //System.out.println("moving to closest city");
+                //brings the Ai troop to the closest city
+                if (closestCity != null && closestDistance > 5 && !unit.readyToMove &&!healing) {
+                    unit.selctX = closestCity.xpos;
+                    unit.selctY = closestCity.ypos;
+                    unit.readyToMove = true;
+                    //System.out.println("moving to closest city");
+                }
             }
         }
         }
