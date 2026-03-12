@@ -23,6 +23,7 @@ public class Unit {
     char type;
     Ellipse2D.Double blastZone;
 //comabt variables
+
     double health;
     double maxHealth;
     double strength;
@@ -35,6 +36,7 @@ public class Unit {
         this.xpos = xpos;
         this.ypos = ypos;
         this.team = team;
+        boolean bombarded;
         //troop units have more health and do more dmg
         if (type=='t') {
             health = 100;

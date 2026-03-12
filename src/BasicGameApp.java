@@ -575,6 +575,18 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
             newUnit('a'); //hotkey shortcut for spawning artillery units for the player
         }
 
+        for (Unit unit:playerUnits){ //de-selects troop units if H is pressed
+            if (!troopDepl.unitDeplMenu&&key==KeyEvent.VK_H){ //only if unit depl menu isnt up
+                if (unit.type  == 't'){
+                    unit.isSelected = false;
+                }
+            }//de-selects artillery if G is pressed
+            if (!troopDepl.unitDeplMenu&&key==KeyEvent.VK_G){//only if unit depl menu isnt up
+                if (unit.type  == 'a'){
+                    unit.isSelected = false;
+                }
+            }
+        }
 
 
     }
@@ -634,7 +646,7 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
 
     //creates new player units and adds them to unit arrays
 public void newUnit(char type){
-        playerMaxTroop = (int)(playerCities.size()*1.25); //sets the maximum limit at ~1.25x the amount of controlled cities for the player
+        playerMaxTroop = (int)(playerCities.size()*.5); //sets the maximum limit at ~.5x the amount of controlled cities for the player
         if (playerUnits.size()<playerMaxTroop) { //prevents troops from being spawed if the player is above the maximum limit
             Unit newUnit = new Unit(placeX, placeY, 'p', type);
             unreadyUnits.add(newUnit);
@@ -669,8 +681,8 @@ public void updateUnits(){
 
         for (Unit unit: allUnits){ //gets all the units
             for (Cities city:cities) {//gets all the cities
-//makes units capture cities if they are touching them while not moving
-                if (!unit.readyToMove&&city.team!=unit.team&&unit.hitbox.intersects(city.hitbox)){
+//makes troop units capture cities if they are touching them while not moving
+                if (!unit.readyToMove&&city.team!=unit.team&&unit.hitbox.intersects(city.hitbox)&&unit.type!='a'){
                     city.captureTime--;
                     if (city.captureTime<=0){ //captures the city/sets the city team to the troop team when capture timer is up
                         city.team=unit.team;
