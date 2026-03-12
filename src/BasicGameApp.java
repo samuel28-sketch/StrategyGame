@@ -399,6 +399,27 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
             //g.drawRect(unit.xpos-cameraXPos-10,unit.ypos-cameraYPos-27,unit.width-30,unit.height-45); hitbox visualized
 
         }
+
+        //renders a health bar for units that have taken damage
+        for (Unit unit : allUnits) { //gets every unit on map
+            if (unit.health < unit.maxHealth) {
+                g.setColor(Color.green);
+                g.fillRect((int) unit.xpos - cameraXPos - 10, (int) unit.ypos - cameraYPos - 50, (int) (50 * (unit.health) / unit.maxHealth), 10);
+                g.drawRect((int) unit.xpos - cameraXPos - 10, (int) unit.ypos - cameraYPos - 50, 50, 10);
+                g.setColor(Color.black);
+            }
+        }
+
+        //renders a capture bar for cities that are being captured
+        for (Cities city:cities){//gets every city
+            if (city.captureTime<city.maxCaptureTime) {
+                g.setColor(Color.orange);
+                g.fillRect(city.xpos - cameraXPos - 10, city.ypos - cameraYPos - 50, (int) (50 * (city.maxCaptureTime - city.captureTime) / city.maxCaptureTime), 10);
+                g.drawRect(city.xpos - cameraXPos - 10, city.ypos - cameraYPos - 50, 50, 10);
+                g.setColor(Color.black);
+            }
+        }
+
         if (troopDepl.unitDeplMenu) { //renders if r is pressed
             g.drawImage(troopDepl.deplGUI, 10, 10, 400, 100, null); //renders the troop menu
 
@@ -410,25 +431,8 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
                 g.fillRect(270, 130 + 50 * i, (int) (50 * (double) (unit.maxSpawnTime - unit.spawnTime) / unit.maxSpawnTime), 10);
                 g.setColor(Color.black);
             }
-            //renders a health bar for units that have taken damage
-            for (Unit unit : allUnits) { //gets every unit on map
-                if (unit.health < unit.maxHealth) {
-                    g.setColor(Color.green);
-                    g.fillRect((int) unit.xpos - cameraXPos - 10, (int) unit.ypos - cameraYPos - 50, (int) (50 * (unit.health) / unit.maxHealth), 10);
-                    g.drawRect((int) unit.xpos - cameraXPos - 10, (int) unit.ypos - cameraYPos - 50, 50, 10);
-                    g.setColor(Color.black);
-                }
-            }
         }
-        //renders a capture bar for cities that are being captured
-            for (Cities city:cities){//gets every city
-                if (city.captureTime<city.maxCaptureTime) {
-                    g.setColor(Color.orange);
-                    g.fillRect(city.xpos - cameraXPos - 10, city.ypos - cameraYPos - 50, (int) (50 * (city.maxCaptureTime - city.captureTime) / city.maxCaptureTime), 10);
-                    g.drawRect(city.xpos - cameraXPos - 10, city.ypos - cameraYPos - 50, 50, 10);
-                    g.setColor(Color.black);
-                }
-            }
+
             //int i = unitSpawnBars.size()-1;i >= 0 && i<=6; i--
 
 
@@ -767,7 +771,7 @@ public void updateUnits(){
             Unit newUnit = new Unit(spawnCity.xpos, spawnCity.ypos,'e','t',3.1); //Ai can only spawn troop units
             enemyUnits.add(newUnit);
             allUnits.add(newUnit);
-            aiSpawnTime = random.nextInt(100+(int)Math.pow(1.15,enemyUnits.size())); //increases the random increments of time exponentially according to how many troops the Ai already has
+            aiSpawnTime = 50+random.nextInt(100+(int)Math.pow(1.75,enemyUnits.size())); //increases the random increments of time exponentially according to how many troops the Ai already has
         }
 
         //path finds for AI units
@@ -794,7 +798,7 @@ public void updateUnits(){
                     break;
                 }
                 //brings the Ai troop to the closest city
-                if (closestCity != null && closestDistance > 5 && !unit.readyToMove &&!healing) {
+                if (closestCity != null && closestDistance > 2 && !unit.readyToMove &&!healing) {
                     unit.selctX = closestCity.xpos;
                     unit.selctY = closestCity.ypos;
                     unit.readyToMove = true;
