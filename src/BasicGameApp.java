@@ -1,4 +1,12 @@
 //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv DON'T CHANGE! vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+/*
+Author: Samuel Nunes
+Class: CS 1
+Date: 3/11/2026
+Project: Game #2
+Project Title: Civil War in Toylandia
+*/
+
 // Graphics Libraries
 import javax.swing.*;
 import java.awt.*;
@@ -6,6 +14,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferStrategy;
 import java.util.ArrayList;
 import java.util.Random;
@@ -57,6 +66,7 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
     boolean mapVertMoving;
     boolean mapHorzMoving;
     boolean cityCreated;
+    //boolean hexPurged;
 // --mouse variables--
     int mouseX;
     int mouseY;
@@ -76,23 +86,30 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
     boolean placeSelect;
     int placeX;
     int placeY;
+    int enemyMaxTroop;
+    int playerMaxTroop;
+    int aiSpawnTime;
+    boolean showHitboxes;
 // gridding/GUI variables
     int hexaRows;
 
-    GUI troopDepl;
-    Land land;
+    GUI troopDepl; //creates the troop deployment menu
 
 
 //--class arrays--
-    ArrayList<Unit> readyUnits = new ArrayList<>();
+    ArrayList<Unit> playerUnits = new ArrayList<>();
     ArrayList<Unit> unreadyUnits = new ArrayList<>();
-    ArrayList<GUI> unitBars = new ArrayList<>();
+    ArrayList<Unit> allUnits = new ArrayList<>();
+    ArrayList<Unit> enemyUnits = new ArrayList<>();
+    ArrayList<GUI> unitSpawnBars = new ArrayList<>();
     ArrayList<Land> grid = new ArrayList<>();
     ArrayList<Land> neighbors = new ArrayList<>();
     ArrayList<Cities> cities = new ArrayList<>();
+    ArrayList<Cities> playerCities = new ArrayList<>();
+    ArrayList<Cities> enemyCities = new ArrayList<>();
 
-    Random random = new Random(); //creates random
-    Robot pixleCheck = new Robot(); //adds a robot
+    Random random = new Random(); //creates random for random integers
+    Robot pixleCheck = new Robot(); //adds a robot for getting pixel colors
 
 
 
@@ -103,10 +120,10 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
     public BasicGameApp() throws AWTException { // BasicGameApp constructor
         setUpGraphics();
         // -- adding input listeners--
-        keyInput = new KeyInput(this);
-        canvas.addMouseListener(this);
-        canvas.addKeyListener(keyInput);
-        canvas.addMouseMotionListener(this);
+        keyInput = new KeyInput(this); //creates keyboard input class
+        canvas.addMouseListener(this);     //mouse input listener
+        canvas.addKeyListener(keyInput);      //creates keyboard input listener
+        canvas.addMouseMotionListener(this); //creates mouse drag/motion listener
 
 
 
@@ -115,11 +132,11 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
         //create (construct) the objects needed for the game
 //-- creating the map grid --
         troopDepl=new GUI();
-        for (double columns = 0; columns <140; columns++) {//double columns =50;columns<2100;columns+= 15
+        for (double columns = 0; columns <140; columns++) { //loops an entire row for each column
             hexaRows++;
             double hexaYPos = columns*15;
-            for (double rows = 0; rows < 200; rows++) {//double rows = 50; rows < 3000; rows += 15
-                if (hexaRows%2==1) {
+            for (double rows = 0; rows < 200; rows++) { //creates hexagons for each row
+                if (hexaRows%2==1) { //staggers hexagons so that they stack neatly
                     double hexaXPos = 15*rows;
                     Land land = new Land(10, hexaXPos -7.5, hexaYPos,rows,columns);
                     grid.add(land);
@@ -168,106 +185,188 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
         //--city creation--
 
         //right now makes cities randomly
-        if (!cityCreated) {
-            for (int i = 0; i < 50; i++) {
-                int randomX = random.nextInt(3000) + 380; //random.nextInt(2000) + 380;
-                int randomY = random.nextInt(500) + 1200; //random.nextInt(500) + 1200
+        if (!cityCreated) { //makes it so cities are only created once
+            for (int i = 0; i < 50; i++) { //creates multiple small cities
+                int randomX = random.nextInt(3000) + 380;
+                int randomY = random.nextInt(500) + 1200;
                 Color color = pixleCheck.getPixelColor(randomX, randomY);
-                if (!(color.getRed() > 200 && color.getRed() < 255 && color.getGreen() > 200 && color.getGreen() < 255 && color.getBlue() > 200 && color.getBlue() < 255)) { // spawns if pixle color isnt grey (238,238,238)
+                if (!((color.getRed() == 127 || color.getRed() == 238) && (color.getGreen() ==127 || color.getGreen() ==238) && (color.getBlue() ==127 || color.getBlue() == 238))) { // (should) prevent city from spawning on grey sections, may benefit from fine tuning
                     double teamChoice = Math.random();
-                    if (teamChoice<.5) {
+                    if (teamChoice<.5) { //random 50/50 chance to be assigned to player or enemy team
                         Cities city = new Cities(randomX, randomY, 's','p');
                         cities.add(city);
+                        playerCities.add(city);
                     }
                     else {
                         Cities city = new Cities(randomX, randomY, 's','e');
                         cities.add(city);
-                        System.out.println("city spawn blocked");
+                        enemyCities.add(city);
+                        //System.out.println("city spawn blocked");
                     }
-                } else {
+                } else { //repeats that instance in the loop if the city would've spawned on an invalid spot
                     i--;
                 }
             }
-            for (int i = 0; i < 30; i++) {
+            for (int i = 0; i < 30; i++) { //creates multiple medium cities
                 int ranomX = random.nextInt(2000) + 380;
                 int randomY = random.nextInt(500) + 1200;
                 Color color = pixleCheck.getPixelColor(ranomX, randomY);
-                if (!(color.getRed() > 200 && color.getRed() < 255 && color.getGreen() > 200 && color.getGreen() < 255 && color.getBlue() > 200 && color.getBlue() < 255)) { // spawns if pixle color isnt grey (238,238,238)
+                if (!((color.getRed() == 127 || color.getRed() == 238) && (color.getGreen() ==127 || color.getGreen() ==238) && (color.getBlue() ==127 || color.getBlue() == 238))) { // spawns if pixle color isnt grey (127,127,127), or off-map white (238,238,238)
                     double teamChoice = Math.random();
-                    if (teamChoice<.5) {
+                    if (teamChoice<.5) { //assigns to player or enemy team randomly
                         Cities city = new Cities(ranomX, randomY, 'm','p');
                         cities.add(city);
+                        playerCities.add(city);
                     }
                     else {
                         Cities city = new Cities(ranomX, randomY, 'm','e');
                         cities.add(city);
+                        enemyCities.add(city);
                     }
-                } else {
+                } else { //loops back if spawn was invalid
                     i--;
                 }
             }
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 10; i++) { //creates multiple large cities
                 int ranomX = random.nextInt(2000) + 380;
                 int randomY = random.nextInt(500) + 1200;
                 Color color = pixleCheck.getPixelColor(ranomX, randomY);
-                if (!(color.getRed() > 200 && color.getRed() < 255 && color.getGreen() > 200 && color.getGreen() < 255 && color.getBlue() > 200 && color.getBlue() < 255)) { // spawns if pixle color isnt grey (238,238,238)
+                if (!((color.getRed() == 127 || color.getRed() == 238) && (color.getGreen() ==127 || color.getGreen() ==238) && (color.getBlue() ==127 || color.getBlue() == 238))) { // spawns if pixle color isnt grey (127,127,127), or off-map white (238,238,238)
                     double teamChoice = Math.random();
-                    if (teamChoice<.5) {
+                    if (teamChoice<.5) { //randomly assigns team
                         Cities city = new Cities(ranomX, randomY, 'l','p');
                         cities.add(city);
+                        playerCities.add(city);
                     }
                     else {
                         Cities city = new Cities(ranomX, randomY, 'l','e');
                         cities.add(city);
+                        enemyCities.add(city);
                     }
-                } else {
+                } else { //loops back if spawn wasnt valid
                     i--;
                 }
             }
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 2; i++) { //creates only 2 capital cities
                 int ranomX = random.nextInt(2000) + 380;
                 int randomY = random.nextInt(500) + 1200;
                 Color color = pixleCheck.getPixelColor(ranomX, randomY);
-                if (!(color.getRed() > 200 && color.getRed() < 255 && color.getGreen() > 200 && color.getGreen() < 255 && color.getBlue() > 200 && color.getBlue() < 255)) { // spawns if pixle color isnt grey (238,238,238)
-                    if (i == 0) {
+                if (!((color.getRed() == 127 || color.getRed() == 238) && (color.getGreen() ==127 || color.getGreen() ==238) && (color.getBlue() ==127 || color.getBlue() == 238))) { // spawns if pixle color isnt grey (127,127,127), or off-map white (238,238,238)
+                    if (i == 0) { //assigns one to player, one to enemy
                         Cities city = new Cities(ranomX, randomY, 'c','p');
                         cities.add(city);
+                        playerCities.add(city);
                     }
                     else if (i == 1){
                         Cities city = new Cities(ranomX, randomY, 'c','e');
                         cities.add(city);
+                        enemyCities.add(city);
                     }
-                } else {
+                } else { //loops back if spawn wasnt valid
                     i--;
                 }
             }
-            cityCreated = true;
+            cityCreated = true; //makes it so cities are only created once
         }
 
         //updates the map grid to world coordinates
-        for (Land land:grid) {
+        for (Land land:grid) { //gets every hex-tile on the world grid
             land.update(cameraXPos, cameraYPos);
-            for (Cities city:cities) {
-                if (land.tile.contains(city.xpos-cameraXPos,city.ypos-cameraYPos)&&city.team=='e') {
+            // updates hex-tiles to reflect the color of the team if they contain a city
+            for (Cities city:cities) { //gets every city
+
+                land.team='n';
+                if (land.tile.contains(city.xpos - cameraXPos, city.ypos - cameraYPos) && city.team == 'e') {
                     g.setColor(Color.red);
                     g.fillPolygon(land.xPoints, land.yPoints, 6);
                     g.setColor(Color.black);
                     land.team = 'e';
-                }
-                else if (land.tile.contains(city.xpos-cameraXPos,city.ypos-cameraYPos)&&city.team=='p'){
+                } else if (land.tile.contains(city.xpos - cameraXPos, city.ypos - cameraYPos) && city.team == 'p') {
                     g.setColor(Color.blue);
                     g.fillPolygon(land.xPoints, land.yPoints, 6);
                     g.setColor(Color.black);
                     land.team = 'p';
                 }
-                /*if (land.team == 'n'){ //if i want to do the teamcount system, i need a boolean is false untill a nearby tile updates its team, and then this conditional will run and mark it fasle again
-                    Land neighbor = grid.get(land.rowIndex-1);
-                    if (neighbor.tile.intersects(neighbor.tile.getBounds2D())){
-                        if (neighbor.team == 'p') {
-                            land.teamCount++;
-                        }
+
+            }
+        }
+
+        // --theoretically would spread team colors to neutral, colorless tiles, but currently barely works, and is very unoptimized that it usually crashes the game and prevents any rendering at all ---
+
+        /*for (Land land:grid) {
+            if (land.team == 'n') { //if i want to do the teamcount system, i need a boolean is false untill a nearby tile updates its team, and then this conditional will run and mark it fasle again
+                land.teamCount = 0;
+                if (land.rowIndex - 1 >= 0) { //CURRENTLY NEED TO OPTIMIZE OR SMTH CUZ ALL THIS RLY LAGS THE GAME
+                    Land neighbor = grid.get(land.columnIndex * 200 + land.rowIndex - 1); //prior line ran off of if (land.tile.intersects(neighbor.tile.getBounds2D())){
+                    if (neighbor.team == 'p') {
+                        land.teamCount++;
                     }
-                }*/
+                    if (neighbor.team == 'e') {
+                        land.teamCount--;
+                    }
+                }
+                if (land.rowIndex + 1 < 200) {
+                    Land neighbor = grid.get(land.columnIndex * 200 + land.rowIndex + 1);
+                    if (neighbor.team == 'p') {
+                        land.teamCount++;
+                    }
+                    if (neighbor.team == 'e') {
+                        land.teamCount--;
+                    }
+                }
+                if (land.columnIndex - 1 >= 0) {
+                    Land neighbor = grid.get(land.rowIndex + (land.columnIndex - 1) * 200);
+                    if (neighbor.team == 'p') {
+                        land.teamCount++;
+                    }
+                    if (neighbor.team == 'e') {
+                        land.teamCount--;
+                    }
+                }
+
+                if (land.columnIndex + 1 < 140) {
+                    Land neighbor = grid.get(land.rowIndex + (land.columnIndex + 1) * 200);
+                    if (neighbor.team == 'p') {
+                        land.teamCount++;
+                    }
+                    if (neighbor.team == 'e') {
+                        land.teamCount--;
+                    }
+                }
+
+
+                if (land.teamCount > 0) {
+                    land.team = 'p';
+                } else if (land.teamCount < 0) {
+                    land.team = 'e';
+                } else {
+                    land.team = 'n';
+                }
+
+            }
+
+
+            if (!hexPurged) {
+                Color color = pixleCheck.getPixelColor((int) land.xpos+7, (int) land.ypos+7);
+                if (color.getRed() > 50 && color.getRed() < 255 && color.getGreen() > 50 && color.getGreen() < 255 && color.getBlue() > 50 && color.getBlue() < 255) {
+                    land.onLand = false;
+                }
+            }
+
+            if (land.onLand) {
+                if (land.team == 'p') {
+                    g.setColor(Color.blue);
+                    g.fillPolygon(land.xPoints, land.yPoints, 6);
+                    g.setColor(Color.black);
+                }
+                if (land.team == 'e') {
+                    g.setColor(Color.red);
+                    g.fillPolygon(land.xPoints, land.yPoints, 6);
+                    g.setColor(Color.black);
+                }
+            }
+        }
+        */
                 /*if (land.team == 'n') { //ADD THIS LATER, SPREADING TEAM COLOR TO ADJECTENT HEXES, CURRENTLY CRASHES THE GAME CUZ IT CHECKS TOO MANY TILES, NEED TO BASE IT OFF OF INDEX NUMB INSTEAD, CHECK THE HEXES W ADJ NUMBS
                     for (Land neighbor : neighbors) { //NOTE: MAKE A SYSTEM WHERE FOR EVERY p HEX NEIGHBORING IT ADDS 1 TO AN INT, THEN FOR EVERY e HEX IT REMOVES 1, SO THAT IF THE INT IS ABOVE, BELOW, OR EQUAL TO 0 THE HEX WILL EITHER BE BLUE RED OR NORMAL RESPECTIVELY
                           //  if (land.tile.intersects(neighbor.tile.getBounds2D())){
@@ -275,35 +374,61 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
                           //  }
                     }
                 }*/
-            }
-        }
-        for (Cities city:cities){
+        //hexPurged = true;
+
+        //renders cities as circles on the world cords
+        for (Cities city:cities){ //gets every city
             g.fillOval(city.xpos-cameraXPos,city.ypos-cameraYPos,city.width,city.height);
         }
 
-        for(Unit unit:readyUnits){
-            g.drawImage(unit.idlePic, unit.xpos-cameraXPos-20, unit.ypos-cameraYPos-50, unit.width, unit.height, null); //renders troops on the map
+        //renders all units on the map
+        for(Unit unit: allUnits){ //gets every unit on the map
+            g.drawImage(unit.idlePic, (int)unit.xpos-cameraXPos-20, (int)unit.ypos-cameraYPos-50, unit.width, unit.height, null); //renders troops on the map
+            if (showHitboxes) { //shows the hitbox of every unit if Q is pressed
+                if (unit.type=='a') {
+                    g.drawOval((int) (unit.xpos - cameraXPos - (150 + (10 * unit.kills))), (int) (unit.ypos - cameraYPos - (150 + (10 * unit.kills))), (int) (300 + (20 * unit.kills)), (int) (300 + (20 * unit.kills)));
+                }
+                g.draw(unit.hitbox);
+            }
+
             //System.out.println(unit.xpos-cameraXPos);
             //System.out.println(unit.ypos-cameraYPos);
             //g.drawRect(unit.xpos-cameraXPos-10,unit.ypos-cameraYPos-27,unit.width-30,unit.height-45); hitbox visualized
 
         }
+        if (troopDepl.unitDeplMenu) { //renders if r is pressed
+            g.drawImage(troopDepl.deplGUI, 10, 10, 400, 100, null); //renders the troop menu
 
-        if (troopDepl.unitDeplMenu){
-            g.drawImage(troopDepl.deplGUI,10,10,400,100,null); //renders the troop menu
-
-            //renders the progress bar of the timer when units are made
-            for (int i = 0;i < unitBars.size()&& i<=6; i++) {
+            //renders the progress bar of the timer for when units are made
+            for (int i = 0; i < unitSpawnBars.size() && i <= 6; i++) { //limits the amount of spawn bars that are rendered to 6
                 Unit unit = unreadyUnits.get(i);
-                g.drawImage(unitBars.get(i).troopBar, 10, 110 + 50 * i, 400, 50, null);
-                    g.setColor(Color.yellow);
-                    g.fillRect(270, 130 + 50 * i, (int) (50 * (double) (500 - unit.spawnTime) / 500), 10);
-                    g.setColor(Color.black);
-
+                g.drawImage(unitSpawnBars.get(i).troopBar, 10, 110 + 50 * i, 400, 50, null);
+                g.setColor(Color.yellow);
+                g.fillRect(270, 130 + 50 * i, (int) (50 * (double) (unit.maxSpawnTime - unit.spawnTime) / unit.maxSpawnTime), 10);
+                g.setColor(Color.black);
             }
-            //int i = unitBars.size()-1;i >= 0 && i<=6; i--
-
+            //renders a health bar for units that have taken damage
+            for (Unit unit : allUnits) { //gets every unit on map
+                if (unit.health < unit.maxHealth) {
+                    g.setColor(Color.green);
+                    g.fillRect((int) unit.xpos - cameraXPos - 10, (int) unit.ypos - cameraYPos - 50, (int) (50 * (unit.health) / unit.maxHealth), 10);
+                    g.drawRect((int) unit.xpos - cameraXPos - 10, (int) unit.ypos - cameraYPos - 50, 50, 10);
+                    g.setColor(Color.black);
+                }
+            }
         }
+        //renders a capture bar for cities that are being captured
+            for (Cities city:cities){//gets every city
+                if (city.captureTime<city.maxCaptureTime) {
+                    g.setColor(Color.orange);
+                    g.fillRect(city.xpos - cameraXPos - 10, city.ypos - cameraYPos - 50, (int) (50 * (city.maxCaptureTime - city.captureTime) / city.maxCaptureTime), 10);
+                    g.drawRect(city.xpos - cameraXPos - 10, city.ypos - cameraYPos - 50, 50, 10);
+                    g.setColor(Color.black);
+                }
+            }
+            //int i = unitSpawnBars.size()-1;i >= 0 && i<=6; i--
+
+
 
         //g.fillRect(270, 55,75,15);
 
@@ -315,7 +440,7 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
         // Signature: drawImage(Image img, int x, int y, int width, int height, ImageObserver observer)
 
 //renders the indicator for if a troop is selected
-        for(Unit unit:readyUnits){
+        for(Unit unit: playerUnits){ //gets every unit in playerunits
             if (unit.isSelected){
                 g.fillRect(600,600,50,50);
             }
@@ -367,7 +492,10 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
             render();  // paint the graphics
             pause(10); // sleep for 10 ms
 
-            updateUnits();
+            battles(); // deals with battle logic
+            updateUnits(); //updates unit fundamentals e.g world coordinates
+            updateCities(); //updates city fundamentals e.g world coordinates
+            updateAI(); //deals with AI logic
         }
     }
 
@@ -417,6 +545,15 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
         //if (key==KeyEvent.VK_R){
         //    newUnit();
         //}
+        if (key==KeyEvent.VK_Q){ //enables/disables show hitboxes if Q is pressed
+            if (!showHitboxes) {
+                showHitboxes = true;
+                return;
+            }
+            if (showHitboxes){
+                showHitboxes = false;
+            }
+        }
         if (key==KeyEvent.VK_R&&!troopDepl.unitDeplMenu){ //activates the unit deployment menu - rendering the image and allowing for troop creation
             troopDepl.unitDeplMenu = true;
             return;
@@ -429,7 +566,10 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
             placeSelect = true; //hotkey shortcut for selecting where the next units will spawn
         }
         if (key==KeyEvent.VK_G&& troopDepl.unitDeplMenu){
-            newUnit("PLAYER"); //hotkey shortcut for spawning units for the player
+            newUnit('t'); //hotkey shortcut for spawning troop units for the player
+        }
+        if (key==KeyEvent.VK_H&& troopDepl.unitDeplMenu){
+            newUnit('a'); //hotkey shortcut for spawning artillery units for the player
         }
 
 
@@ -437,7 +577,7 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
     }
 
     public void keyReleased(KeyEvent e) {
-        mapVertMoving = false; //makes the map stop moving when the key is released
+        mapVertMoving = false; //applies friction to the map when movement stops
         mapHorzMoving = false;
     }
 
@@ -489,39 +629,168 @@ public class BasicGameApp implements Runnable, MouseListener, MouseMotionListene
 
     }
 
-    //creates new units and adds them to unit array
-public void newUnit(String team){
-        Unit newUnit = new Unit(placeX, placeY,"PLAYER");
-        unreadyUnits.add(newUnit);
-        GUI newUnitBar = new GUI();
-        unitBars.add(newUnitBar);
+    //creates new player units and adds them to unit arrays
+public void newUnit(char type){
+        playerMaxTroop = (int)(playerCities.size()*1.25); //sets the maximum limit at ~1.25x the amount of controlled cities for the player
+        if (playerUnits.size()<playerMaxTroop) { //prevents troops from being spawed if the player is above the maximum limit
+            Unit newUnit = new Unit(placeX, placeY, 'p', type);
+            unreadyUnits.add(newUnit);
+            GUI newUnitBar = new GUI();
+            unitSpawnBars.add(newUnitBar);
+        }
 }
 
 //--unit updates--
 public void updateUnits(){
         //if (!unreadyUnits.isEmpty()){
     //updates the spawn time for units that aren't on the map yet
-        for (int i = unreadyUnits.size()-1;i >= 0; i--) {
+        for (int i = unreadyUnits.size()-1;i >= 0; i--) { //goes thru all the training units and updates their spawn times
             Unit unit = unreadyUnits.get(i);
             unit.spawnUpdate();
             System.out.println(unit.spawnTime);
     //spawns units if the spawn time is over, and moves them to the "exists on map" array
             if (unit.isReadyToSpawn()) {
                 unreadyUnits.remove(i);
-                unitBars.remove(i);
-                readyUnits.add(unit);
+                unitSpawnBars.remove(i);
+                playerUnits.add(unit);
+                allUnits.add(unit);
                 //System.out.println("Spawning at: " + mouseX + ", " + mouseY);
             }
         }
         //updates units hitbox position into world coordinates
-            for(Unit readyUnit:readyUnits){
-                readyUnit.update(cameraXPos,cameraYPos);
+            for(Unit units: allUnits){ //gets every unit on the map
+                units.update(cameraXPos,cameraYPos);
             }
 
 
-        /*for (Unit unit:readyUnits){
-            unit.updateHitbox(cameraXPos,cameraYPos);
-        }*/
+
+        for (Unit unit: allUnits){ //gets all the units
+            for (Cities city:cities) {//gets all the cities
+//makes units capture cities if they are touching them while not moving
+                if (!unit.readyToMove&&city.team!=unit.team&&unit.hitbox.intersects(city.hitbox)){
+                    city.captureTime--;
+                    if (city.captureTime<=0){ //captures the city/sets the city team to the troop team when capture timer is up
+                        city.team=unit.team;
+                        if (enemyCities.contains(city)){
+                          enemyCities.remove(city);
+                          playerCities.add(city);
+                        }
+                        else if (playerCities.contains(city))
+                        {
+                          playerCities.remove(city);
+                          enemyCities.add(city);
+                        }
+                        city.captureTime=city.maxCaptureTime;
+                    }
+                }
+                else if (!unit.readyToMove&&city.team==unit.team&&unit.hitbox.intersects(city.hitbox)){ //heals units that stop in friendly cities
+                    unit.health+=.1;
+                    if (unit.health>unit.maxHealth){
+                        unit.health=unit.maxHealth;
+                    }
+                }
+                }
+            }
+
+        }
+
+        public void battles(){
+            for (int i = playerUnits.size() - 1; i >= 0; i--) { //goes thru every player unit starting from the end of the list
+                Unit playerUnit = playerUnits.get(i);
+                for (int j = enemyUnits.size() - 1; j >= 0; j--) { ////goes thru every enemy unit starting from the end of the list
+                    Unit enemyUnit = enemyUnits.get(j);
+
+                    if (playerUnit.blastZone!=null&&playerUnit.blastZone.intersects(enemyUnit.hitbox)&&!playerUnit.readyToMove){//only for artillery, if an enemy unit is in artillery range it takes damage
+                        enemyUnit.health-=playerUnit.blastStrength*Math.pow(1.5, playerUnit.kills); //gains an exponetial damage buff w more kills
+                        if (enemyUnit.health<=0){
+                            enemyUnits.remove(enemyUnit);
+                            allUnits.remove(enemyUnit);
+                            if (playerUnit.kills<5) { //if artillery kills a unit, it adds a counter which gives it a buff, stacking up to 5 kills
+                                playerUnit.kills++;
+                            }
+                        }
+                    }
+////if units fight directly hitbox to hitbox, it stops them from moving and each unit begins to take damage from the other
+                if (playerUnit.hitbox.intersects(enemyUnit.hitbox)){
+                    playerUnit.readyToMove=false;
+                    playerUnit.dx=0;
+                    playerUnit.dy=0;
+                    enemyUnit.readyToMove=false;
+                    enemyUnit.dx=0;
+                    enemyUnit.dy=0;
+                    playerUnit.health-=enemyUnit.strength*Math.pow(1.1, enemyUnit.kills);
+                    enemyUnit.health-=playerUnit.strength*Math.pow(1.1, playerUnit.kills); //troop units gain an exponential buff w more kills
+                    //System.out.println(playerUnit.health);
+
+                    if (playerUnit.health<=0){
+                        playerUnits.remove(playerUnit);
+                        allUnits.remove(playerUnit);
+                        if (enemyUnit.kills<5) {
+                            enemyUnit.kills++; //if a troop kills a unit, it adds a counter which gives it a buff, stacking up to 5 kills
+                        }
+                    }
+                    if (enemyUnit.health<=0){
+                        enemyUnits.remove(enemyUnit);
+                        allUnits.remove(enemyUnit);
+                        if (playerUnit.kills<5) {
+                            playerUnit.kills++;
+                        }
+                    }
+                }
+            }
+        }
+        }
+//spawns enemy units in random time increments, increasing exponentially with more units the AI has
+//and path finds for Ai units, bringing them to the closest player city to capture
+        public void updateAI(){
+        aiSpawnTime--;
+        enemyMaxTroop=(int)(enemyCities.size()*1.5); //maximum troop amount of ~1.5 per city for AI
+        //System.out.println(enemyMaxTroop);
+        if (aiSpawnTime<=0&&enemyUnits.size()<enemyMaxTroop){ //spawns troops in random time increments, as long as the Ai doesnt have mroe troops then its max
+            //System.out.println("spawned enemy unit");
+            Cities spawnCity = enemyCities.get(random.nextInt(enemyCities.size()));
+            Unit newUnit = new Unit(spawnCity.xpos, spawnCity.ypos,'e','t',3.1); //Ai can only spawn troop units
+            enemyUnits.add(newUnit);
+            allUnits.add(newUnit);
+            aiSpawnTime = random.nextInt(100+(int)Math.pow(1.15,enemyUnits.size())); //increases the random increments of time exponentially according to how many troops the Ai already has
+        }
+
+        //path finds for AI units
+        for (Unit unit:enemyUnits) { // goes thru all the ai units
+
+            Cities closestCity = null;
+            double closestDistance = 9999999;
+//finds the closest player city
+            for (Cities city : playerCities) { // goes thru all the player cities
+                double dx = city.xpos - unit.xpos;
+                double dy = city.ypos - unit.ypos;
+                double distance = Math.sqrt(dx*dx + dy*dy);
+
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestCity = city;
+                }
+            }
+            //makes the Ai heal their unit if its low health and in an Ai city
+            for (Cities city:enemyCities) { // goes thru all the enemy cities
+                if (unit.hitbox.intersects(city.hitbox)&&unit.health<80){
+                    return;
+                }
+            }
+            //brings the Ai troop to the closest city
+             if (closestCity != null && closestDistance>5 && !unit.readyToMove) {
+                unit.selctX = closestCity.xpos;
+                unit.selctY = closestCity.ypos;
+                unit.readyToMove = true;
+                //System.out.println("moving to closest city");
+            }
+        }
+        }
+
+        //updates cities into world cords
+        public void updateCities(){
+        for (Cities city:cities) // goes thru al cities and updates from screen into world cords
+        {city.update(cameraXPos,cameraYPos);}
         }
 
     @Override
@@ -531,8 +800,9 @@ public void updateUnits(){
         mouseY = e.getY();
         //troop spawn button
         System.out.println("x:" + mouseX + "Y:" + mouseY);
+        System.out.println(pixleCheck.getPixelColor(mouseX,mouseY));
         if (troopDepl.spawnButton.contains(mouseX,mouseY)&& troopDepl.unitDeplMenu){
-            newUnit("PLAYER");
+            newUnit('t');
         }
         //selecting a location for units to spawn after the spawn location button is pressed
         if (placeSelect){
@@ -540,13 +810,19 @@ public void updateUnits(){
             placeY=mouseY+cameraYPos;
             placeSelect = false;
         }
+
+        //selects units to be moved
+        for(Unit unit: playerUnits){ //gets every unit in playerunits
+            if (!unit.isSelected&&unit.hitbox.contains(mouseX,mouseY))
+                {unit.isSelected=true; break;}
+        }
         //spawn location button
         if (troopDepl.placeButton.contains(mouseX,mouseY)&& troopDepl.unitDeplMenu){
             placeSelect = true;
         }
 
         //System.out.println(placeSelect);
-        /*for (Unit unit:readyUnits) {
+        /*for (Unit unit:playerUnits) {
             if (unit.hitbox.contains(mouseX, mouseY)){
                 System.out.println("Clicked on unit");
             }
@@ -564,7 +840,7 @@ public void updateUnits(){
             mousePrs = true;
         }
         //moves units to the pressed location after they're selected
-        for(Unit unit:readyUnits){
+        for(Unit unit: playerUnits){ //gets every unit in playerunits
             if (unit.isSelected){
                 unit.selctX = e.getX() + cameraXPos;
                 unit.selctY = e.getY() + cameraYPos;
@@ -581,8 +857,8 @@ public void updateUnits(){
         //creates/finalizes selection box
         if (mousePrs){
             selectBox = new Rectangle(Math.min(mousePrsX,mouseRelX),Math.min(mousePrsY,mouseRelY),Math.abs(mouseRelX-mousePrsX),Math.abs(mouseRelY-mousePrsY));
-            for (Unit unit:readyUnits){
-                if (selectBox.intersects(unit.hitbox)&&unit.team=="PLAYER"){
+            for (Unit unit: playerUnits){ ////gets every unit in playerunits
+                if (selectBox.intersects(unit.hitbox)&&unit.team=='p'){
                     unit.isSelected = true;
                     //System.out.println("selected");
                 }
